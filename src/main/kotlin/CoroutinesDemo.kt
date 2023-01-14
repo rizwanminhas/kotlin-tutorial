@@ -2,6 +2,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import kotlinx.coroutines.*
 import java.util.concurrent.Executors
+import kotlin.math.log
 
 val logger: Logger = LoggerFactory.getLogger("CoroutinesDemo")
 
@@ -196,6 +197,11 @@ suspend fun forgettingFriendBirthdayRoutineWithResource() {
                 workingNicely()
             }
         }
+
+        workingJob.invokeOnCompletion { exception: Throwable? ->
+            // can handle completion and cancellation differently, depending on the exception
+            logger.info("make sure I talk to my colleagues that i will be out for 30 mins")
+        }
         launch {
             delay(2000) // after 2seconds I remember I have a birthday today
             workingJob.cancel() // sends a signal to the coroutine to cancel, cancellations happens at first yielding point
@@ -205,6 +211,51 @@ suspend fun forgettingFriendBirthdayRoutineWithResource() {
     }
 }
 
+// canclellation propagates to child coroutines
+
+suspend fun drinkWater() {
+    while(true) {
+        logger.info("drinking water")
+        delay(1000)
+    }
+}
+
+suspend fun forgettingFriendBirthdayRoutineStayHydrated() {
+    coroutineScope {
+        val workingJob = launch {
+            launch { workingNicely() }
+            launch { drinkWater() }
+        }
+        launch {
+            delay(2000) // after 2seconds I remember I have a birthday today
+            workingJob.cancel() // sends a signal to the coroutine to cancel, cancellations happens at first yielding point
+            workingJob.join() // you are sure that the coroutine has been cancelled
+            logger.info("forgot friend's birthday, buying a present")
+        }
+    }
+}
+
+// coroutines context
+suspend fun asyncGreeting() {
+    coroutineScope {
+        launch(CoroutineName("Greeting Coroutine") + Dispatchers.Default /* these two = CoroutineContext */) {
+            logger.info("hello, y'all!")
+        }
+    }
+}
+
+suspend fun demoContextInheritance() {
+    coroutineScope {
+        launch(CoroutineName("Greeting coroutine")) {
+            logger.info("[parent coroutine] hello")
+            launch {// coroutine context will be inherited here
+                logger.info("[child coroutine] hi there")
+            }
+            delay(200)
+            logger.info("[parent coroutine] hi again from parent")
+        }
+    }
+}
 
 suspend fun main(array: Array<String>) {
     //bathTime()
@@ -217,5 +268,8 @@ suspend fun main(array: Array<String>) {
     //prepareBreakfast()
     //workNicelyRoutine()
     //forgettingFriendBirthdayRoutine()
-    forgettingFriendBirthdayRoutineWithResource()
+    //forgettingFriendBirthdayRoutineWithResource()
+    //forgettingFriendBirthdayRoutineStayHydrated()
+    //asyncGreeting()
+    demoContextInheritance()
 }
