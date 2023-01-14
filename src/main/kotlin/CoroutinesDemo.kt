@@ -169,12 +169,42 @@ suspend fun forgettingFriendBirthdayRoutineUncancellable() {
         val workingJob = launch { workingHard() }
         launch {
             delay(2000) // after 2seconds I remember I have a birthday today
+            logger.info("trying to stop working...")
             workingJob.cancel() // sends a signal to the coroutine to cancel, cancellations happens at first yielding point
             workingJob.join() // you are sure that the coroutine has been cancelled
             logger.info("forgot friend's birthday, buying a present")
         }
     }
 }
+
+// resources
+class Desk : AutoCloseable {
+    init {
+        logger.info("starting to work on this desk")
+    }
+
+    override fun close() {
+        logger.info("cleaning up the desk")
+    }
+}
+
+suspend fun forgettingFriendBirthdayRoutineWithResource() {
+    val desk = Desk()
+    coroutineScope {
+        val workingJob = launch {
+            desk.use { _ -> // this resource will be closed upon the completion of the coroutine
+                workingNicely()
+            }
+        }
+        launch {
+            delay(2000) // after 2seconds I remember I have a birthday today
+            workingJob.cancel() // sends a signal to the coroutine to cancel, cancellations happens at first yielding point
+            workingJob.join() // you are sure that the coroutine has been cancelled
+            logger.info("forgot friend's birthday, buying a present")
+        }
+    }
+}
+
 
 suspend fun main(array: Array<String>) {
     //bathTime()
@@ -187,5 +217,5 @@ suspend fun main(array: Array<String>) {
     //prepareBreakfast()
     //workNicelyRoutine()
     //forgettingFriendBirthdayRoutine()
-    forgettingFriendBirthdayRoutineUncancellable()
+    forgettingFriendBirthdayRoutineWithResource()
 }
