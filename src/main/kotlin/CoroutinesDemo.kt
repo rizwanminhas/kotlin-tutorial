@@ -1,7 +1,7 @@
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import kotlinx.coroutines.*
-import kotlin.math.log
+import java.util.concurrent.Executors
 
 val logger: Logger = LoggerFactory.getLogger("CoroutinesDemo")
 
@@ -104,12 +104,88 @@ suspend fun prepareBreakfast() {
     }
 }
 
+// 1- cooperative scheduling -  coroutines yield manually
+suspend fun workingHard() {
+    logger.info("Working")
+    while (true) {
+
+    }
+    delay(100)
+    logger.info("work done")
+}
+
+suspend fun workingNicely() {
+    logger.info("Working")
+    while (true) {
+        delay(100) // give a chance to the dispatcher to run another coroutine
+    }
+    delay(100)
+    logger.info("work done")
+}
+
+
+suspend fun takeABreak() {
+    logger.info("Taking a break")
+    delay(1000)
+    logger.info("break done")
+}
+
+suspend fun workHardRoutine() {
+    val dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1)
+    coroutineScope {
+        launch(dispatcher) { workingHard() }
+        launch(dispatcher) { takeABreak() }
+    }
+}
+
+suspend fun workNicelyRoutine() {
+    val dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1)
+    coroutineScope {
+        launch(dispatcher) { workingNicely() }
+        launch(dispatcher) { takeABreak() }
+    }
+}
+
+val simpleDispatcher = Dispatchers.Default // "normal code" = short code or yielding coroutines.
+val blockingDispatcher = Dispatchers.IO // blocking code = db connections, long running computations.
+val customDispatcher = Executors.newFixedThreadPool(8).asCoroutineDispatcher()
+
+// cancellation
+suspend fun forgettingFriendBirthdayRoutine() {
+    coroutineScope {
+        val workingJob = launch { workingNicely() }
+        launch {
+            delay(2000) // after 2seconds I remember I have a birthday today
+            workingJob.cancel() // sends a signal to the coroutine to cancel, cancellations happens at first yielding point
+            workingJob.join() // you are sure that the coroutine has been cancelled
+            logger.info("forgot friend's birthday, buying a present")
+        }
+    }
+}
+
+// if a coroutine doesn't yield, it can't be cancelled
+suspend fun forgettingFriendBirthdayRoutineUncancellable() {
+    coroutineScope {
+        val workingJob = launch { workingHard() }
+        launch {
+            delay(2000) // after 2seconds I remember I have a birthday today
+            workingJob.cancel() // sends a signal to the coroutine to cancel, cancellations happens at first yielding point
+            workingJob.join() // you are sure that the coroutine has been cancelled
+            logger.info("forgot friend's birthday, buying a present")
+        }
+    }
+}
+
 suspend fun main(array: Array<String>) {
-//bathTime()
-//sequentialMorningRoutine()
-// concurrentMorningRoutine()
+    //bathTime()
+    //sequentialMorningRoutine()
+    // concurrentMorningRoutine()
+
     //noStructConcurrencyMorningRoutine()
     //delay(2000) // needed for noStructConcurrencyMorningRoutine
 
-    prepareBreakfast()
+    //prepareBreakfast()
+    //workNicelyRoutine()
+    //forgettingFriendBirthdayRoutine()
+    forgettingFriendBirthdayRoutineUncancellable()
 }
